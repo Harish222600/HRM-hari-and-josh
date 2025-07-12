@@ -60,7 +60,7 @@ This MERN stack HRM management system includes role-based authentication with th
 cd hrm-management/backend
 node server.js
 ```
-Server runs on: http://localhost:5000
+Server runs on: http://localhost:5001
 
 ### Frontend Application
 ```bash

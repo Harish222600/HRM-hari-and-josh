@@ -28,7 +28,7 @@ const authReducer = (state, action) => {
       return {
         ...state,
         isLoading: true,
-        error: null,
+        // Don't clear error here to prevent form reset
       };
     case AUTH_ACTIONS.LOGIN_SUCCESS:
       return {
@@ -95,13 +95,17 @@ export const AuthProvider = ({ children }) => {
           // Verify token with backend
           const response = await authAPI.verifyToken();
           
-          dispatch({
-            type: AUTH_ACTIONS.LOGIN_SUCCESS,
-            payload: {
-              token,
-              user: JSON.parse(user),
-            },
-          });
+          if (response.data.success) {
+            dispatch({
+              type: AUTH_ACTIONS.LOGIN_SUCCESS,
+              payload: {
+                token,
+                user: JSON.parse(user),
+              },
+            });
+          } else {
+            throw new Error('Token verification failed');
+          }
         } catch (error) {
           // Token is invalid, clear storage
           localStorage.removeItem('token');
@@ -122,20 +126,32 @@ export const AuthProvider = ({ children }) => {
       dispatch({ type: AUTH_ACTIONS.LOGIN_START });
 
       const response = await authAPI.login(credentials);
-      const { token, user } = response.data;
+      
+      if (response.data.success) {
+        const { token, user } = response.data;
+        
+        // Store in localStorage
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
 
-      // Store in localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_SUCCESS,
+          payload: { token, user },
+        });
 
-      dispatch({
-        type: AUTH_ACTIONS.LOGIN_SUCCESS,
-        payload: { token, user },
-      });
-
-      return { success: true };
+        return { success: true };
+      } else {
+        // Handle case where response is received but success is false
+        const errorMessage = response.data.message || 'Login failed';
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage,
+        });
+        return { success: false, error: errorMessage };
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
+      // Handle network errors or HTTP error responses (401, 500, etc.)
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
       dispatch({
         type: AUTH_ACTIONS.LOGIN_FAILURE,
         payload: errorMessage,

@@ -10,6 +10,11 @@ import DepartmentManagement from './components/admin/DepartmentManagement';
 import LeaveApproval from './components/admin/LeaveApproval';
 import LeaveRequest from './components/employee/LeaveRequest';
 import LeaveHistory from './components/employee/LeaveHistory';
+import UserManagement from './components/admin/UserManagement';
+import TeamManagement from './components/admin/TeamManagement';
+import MyTeamDashboard from './components/MyTeamDashboard';
+import MyManagedTeamsDashboard from './components/MyManagedTeamsDashboard';
+
 
 function App() {
   return (
@@ -65,20 +70,7 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={['Admin', 'Vice President', 'HR BP', 'HR Manager', 'HR Executive']}>
                   <Layout>
-                    <div className="container-fluid">
-                      <div className="alert alert-info">
-                        <h4><i className="bi bi-people me-2"></i>User Management</h4>
-                        <p>This module will include:</p>
-                        <ul>
-                          <li>View all users with advanced filtering</li>
-                          <li>Add new employees with role assignment</li>
-                          <li>Edit user profiles and permissions</li>
-                          <li>Bulk user operations</li>
-                          <li>User activity tracking</li>
-                        </ul>
-                        <p className="mb-0"><strong>Status:</strong> <span className="badge bg-warning">In Development</span></p>
-                      </div>
-                    </div>
+                    <UserManagement />
                   </Layout>
                 </ProtectedRoute>
               } 
@@ -120,6 +112,43 @@ function App() {
             />
 
             {/* Other Leave & Attendance Routes */}
+            
+            {/* Team Management Routes */}
+            <Route
+              path="/admin/teams"
+              element={
+                <ProtectedRoute requiredRoles={['Admin', 'Vice President', 'HR BP', 'HR Manager', 'HR Executive', 'Team Manager', 'Team Leader']}>
+                  <Layout>
+                    <TeamManagement />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* My Team Dashboard for Team Leaders */}
+            <Route
+              path="/my-team"
+              element={
+                <ProtectedRoute requiredRoles={['Team Leader']}>
+                  <Layout>
+                    <MyTeamDashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* My Teams Dashboard for Team Managers */}
+            <Route
+              path="/my-teams"
+              element={
+                <ProtectedRoute requiredRoles={['Team Manager']}>
+                  <Layout>
+                    <MyManagedTeamsDashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+                      {/* Leave & Attendance Routes */}
             <Route 
               path="/admin/leave/*" 
               element={
@@ -128,8 +157,9 @@ function App() {
                     <div className="container-fluid">
                       <div className="alert alert-success">
                         <h4><i className="bi bi-calendar3 me-2"></i>Leave & Attendance Management</h4>
-                        <p>Additional modules in development:</p>
+                        <p>This module will include:</p>
                         <ul>
+                          <li>Leave request approval workflow</li>
                           <li>Attendance tracking and reports</li>
                           <li>Holiday calendar management</li>
                           <li>Leave policy configuration</li>

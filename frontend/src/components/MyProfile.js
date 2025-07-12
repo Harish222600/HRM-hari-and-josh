@@ -543,6 +543,25 @@ const MyProfile = () => {
     }
   };
 
+  // Listen for section changes from ProfileSidebar
+  useEffect(() => {
+    const handleSectionChange = (section) => {
+      setActiveTab(section);
+    };
+
+    window.profileSectionChange = handleSectionChange;
+
+    // Check URL hash for initial section
+    const hash = window.location.hash.replace('#', '');
+    if (hash && tabs.find(tab => tab.id === hash)) {
+      setActiveTab(hash);
+    }
+
+    return () => {
+      delete window.profileSectionChange;
+    };
+  }, []);
+
   return (
     <div className="container-fluid py-4">
       <div className="row">

@@ -1,9 +1,9 @@
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
 
-// @desc    Get all users (Admin and VP only)
+// @desc    Get all users
 // @route   GET /api/users
-// @access  Private (Admin, VP)
+// @access  Private (Admin, VP, HR roles, Team Leaders, Team Managers)
 const getAllUsers = async (req, res) => {
   try {
     const { page = 1, limit = 10, role, department, search } = req.query;
@@ -39,15 +39,17 @@ const getAllUsers = async (req, res) => {
     const total = await User.countDocuments(query);
 
     res.json({
+      success: true,
       users,
       totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      currentPage: parseInt(page),
       total
     });
 
   } catch (error) {
     console.error('Get all users error:', error);
     res.status(500).json({
+      success: false,
       message: 'Server error while fetching users',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
@@ -65,41 +67,36 @@ const getUserById = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
+        success: false,
         message: 'User not found'
       });
     }
 
-    // Check if current user can view this user
-    const currentUserLevel = req.user.getRoleLevel();
-    const targetUserLevel = user.getRoleLevel();
-
-    // Users can view their own profile or users with lower authority
-    if (req.user._id.toString() !== user._id.toString() && currentUserLevel > targetUserLevel) {
-      return res.status(403).json({
-        message: 'Access denied. Cannot view user with higher authority.'
-      });
-    }
-
-    res.json({ user });
+    res.json({ 
+      success: true,
+      user 
+    });
 
   } catch (error) {
     console.error('Get user by ID error:', error);
     res.status(500).json({
+      success: false,
       message: 'Server error while fetching user',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
 
-// @desc    Create new user (Admin only)
+// @desc    Create new user
 // @route   POST /api/users
-// @access  Private (Admin only)
+// @access  Private (Admin, VP, HR roles, Team Leaders, Team Managers)
 const createUser = async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
+        success: false,
         message: 'Validation failed',
         errors: errors.array()
       });
@@ -110,16 +107,20 @@ const createUser = async (req, res) => {
       password,
       firstName,
       lastName,
-      role,
+      role = 'Employee',
       department,
       employeeId,
-      phoneNumber
+      phoneNumber,
+      designation,
+      joiningDate,
+      isActive = true
     } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
+        success: false,
         message: 'User with this email already exists'
       });
     }
@@ -129,6 +130,7 @@ const createUser = async (req, res) => {
       const existingEmployeeId = await User.findOne({ employeeId });
       if (existingEmployeeId) {
         return res.status(400).json({
+          success: false,
           message: 'Employee ID already exists'
         });
       }
@@ -144,22 +146,29 @@ const createUser = async (req, res) => {
       department,
       employeeId,
       phoneNumber,
+      designation,
+      joiningDate: joiningDate || new Date(),
+      isActive,
       createdBy: req.user._id
     });
 
     await user.save();
 
     res.status(201).json({
+      success: true,
       message: 'User created successfully',
       user: {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        fullName: user.fullName,
         role: user.role,
         department: user.department,
         employeeId: user.employeeId,
         phoneNumber: user.phoneNumber,
+        designation: user.designation,
+        joiningDate: user.joiningDate,
         isActive: user.isActive,
         createdAt: user.createdAt
       }
@@ -167,7 +176,16 @@ const createUser = async (req, res) => {
 
   } catch (error) {
     console.error('Create user error:', error);
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: messages
+      });
+    }
     res.status(500).json({
+      success: false,
       message: 'Server error while creating user',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
@@ -182,6 +200,7 @@ const updateUser = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
+        success: false,
         message: 'Validation failed',
         errors: errors.array()
       });
@@ -190,6 +209,7 @@ const updateUser = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({
+        success: false,
         message: 'User not found'
       });
     }
@@ -201,6 +221,7 @@ const updateUser = async (req, res) => {
     // Users can only update their own profile or users with lower authority
     if (req.user._id.toString() !== user._id.toString() && currentUserLevel >= targetUserLevel) {
       return res.status(403).json({
+        success: false,
         message: 'Access denied. Cannot update user with equal or higher authority.'
       });
     }
@@ -210,6 +231,7 @@ const updateUser = async (req, res) => {
       lastName,
       department,
       phoneNumber,
+      designation,
       role,
       isActive
     } = req.body;
@@ -219,9 +241,10 @@ const updateUser = async (req, res) => {
     if (lastName) user.lastName = lastName;
     if (department) user.department = department;
     if (phoneNumber) user.phoneNumber = phoneNumber;
+    if (designation) user.designation = designation;
 
-    // Only admins can change roles and active status
-    if (req.user.role === 'Admin') {
+    // Only users except 'Employee' role can change roles and active status
+    if (req.user.role !== 'Employee') {
       if (role) user.role = role;
       if (typeof isActive === 'boolean') user.isActive = isActive;
     }
@@ -229,15 +252,18 @@ const updateUser = async (req, res) => {
     await user.save();
 
     res.json({
+      success: true,
       message: 'User updated successfully',
       user: {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        fullName: user.fullName,
         role: user.role,
         department: user.department,
         phoneNumber: user.phoneNumber,
+        designation: user.designation,
         isActive: user.isActive,
         updatedAt: user.updatedAt
       }
@@ -246,7 +272,46 @@ const updateUser = async (req, res) => {
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({
+      success: false,
       message: 'Server error while updating user',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+// @access  Private (Admin only)
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Prevent deleting admin users
+    if (user.role === 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot delete admin users'
+      });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting user',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
@@ -258,11 +323,48 @@ const updateUser = async (req, res) => {
 const getRoles = async (req, res) => {
   try {
     const roles = User.getRoles();
-    res.json({ roles });
+    res.json({ 
+      success: true,
+      roles 
+    });
   } catch (error) {
     console.error('Get roles error:', error);
     res.status(500).json({
+      success: false,
       message: 'Server error while fetching roles'
+    });
+  }
+};
+
+// @desc    Get next employee ID for a role
+// @route   GET /api/users/next-employee-id/:role
+// @access  Private
+const getNextEmployeeId = async (req, res) => {
+  try {
+    const { role } = req.params;
+    
+    // Validate role
+    const validRoles = User.getRoles();
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role specified'
+      });
+    }
+
+    const nextEmployeeId = await User.generateNextEmployeeId(role);
+    
+    res.json({
+      success: true,
+      employeeId: nextEmployeeId,
+      role: role
+    });
+  } catch (error) {
+    console.error('Get next employee ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while generating employee ID',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
@@ -272,5 +374,7 @@ module.exports = {
   getUserById,
   createUser,
   updateUser,
-  getRoles
+  deleteUser,
+  getRoles,
+  getNextEmployeeId
 };

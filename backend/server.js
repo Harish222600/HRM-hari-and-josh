@@ -11,6 +11,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const departmentRoutes = require('./routes/departments');
 const leaveRoutes = require('./routes/leaves');
+const teamRoutes = require('./routes/teams');
 
 const app = express();
 
@@ -33,12 +34,25 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(async () => {
   console.log('MongoDB connected successfully');
   
-  // Create dummy users after database connection is established
+  // Initialize system data in correct order after database connection is established
   try {
+    console.log('Starting system initialization...');
+    
+    // Step 1: Ensure system admin user exists
+    const createAdminUser = require('./scripts/createAdmin');
+    await createAdminUser();
+    
+    // Step 2: Create departments (requires admin user for createdBy field)
+    const createDepartments = require('./scripts/createDepartments');
+    await createDepartments();
+    
+    // Step 3: Create dummy users (requires departments to exist)
     const createDummyUsers = require('./scripts/createDummyUsers');
     await createDummyUsers();
+    
+    console.log('System initialization completed successfully');
   } catch (error) {
-    console.error('Error creating dummy users:', error);
+    console.error('Error during initialization:', error);
   }
 })
 .catch((err) => console.error('MongoDB connection error:', err));
@@ -48,6 +62,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/teams', teamRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

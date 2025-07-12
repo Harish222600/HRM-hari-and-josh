@@ -78,11 +78,10 @@ const ProfileSidebar = ({ isOpen, onToggle }) => {
   ];
 
   const handleSectionClick = (section) => {
-    // This would scroll to the section or change the active tab
-    // For now, just navigate to profile
-    navigate('/profile');
+    // Navigate to profile with section hash
+    navigate(`/profile#${section}`);
     
-    // You could emit an event or use a callback to change the active section
+    // Communicate with MyProfile component to change the active section
     if (window.profileSectionChange) {
       window.profileSectionChange(section);
     }
@@ -157,6 +156,16 @@ const ProfileSidebar = ({ isOpen, onToggle }) => {
                   style={{ 
                     padding: '12px 16px',
                     transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!e.target.classList.contains('active')) {
+                      e.target.style.backgroundColor = '#f8f9fa';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!e.target.classList.contains('active')) {
+                      e.target.style.backgroundColor = 'transparent';
+                    }
                   }}
                 >
                   <i className={`${item.icon} me-3`} style={{ fontSize: '1.1rem', width: '20px' }}></i>

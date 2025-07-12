@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const teamSchema = new mongoose.Schema({
   name: {
@@ -120,5 +121,8 @@ teamSchema.methods.toJSON = function() {
   teamObject.currentSize = this.currentSize;
   return teamObject;
 };
+
+// Add pagination plugin
+teamSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Team', teamSchema);

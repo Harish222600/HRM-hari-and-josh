@@ -31,8 +31,8 @@ const Sidebar = ({ isOpen, onToggle }) => {
       roles: ['Admin', 'Vice President', 'HR BP', 'HR Manager', 'HR Executive', 'Team Manager', 'Team Leader', 'Employee']
     });
 
-    // User Management - Admin, VP, HR roles
-    if (hasAnyRole(['Admin', 'Vice President', 'HR BP', 'HR Manager', 'HR Executive'])) {
+    // User Management - Admin, VP, HR roles, Team Leaders, Team Managers
+    if (hasAnyRole(['Admin', 'Vice President', 'HR BP', 'HR Manager', 'HR Executive', 'Team Manager', 'Team Leader'])) {
       menuItems.push({
         key: 'user-management',
         title: 'User Management',
@@ -59,10 +59,30 @@ const Sidebar = ({ isOpen, onToggle }) => {
       });
     }
 
+    // Team Management for Team Managers
+    if (hasRole('Team Manager')) {
+      menuItems.push({
+        key: 'my-teams',
+        title: 'My Teams',
+        icon: 'bi-diagram-3',
+        path: '/my-teams'
+      });
+    }
+
+    // Team Management for Team Leaders
+    if (hasRole('Team Leader')) {
+      menuItems.push({
+        key: 'my-team',
+        title: 'My Team',
+        icon: 'bi-people',
+        path: '/my-team'
+      });
+    }
+
     // Leave & Attendance Management
     if (hasAnyRole(['Admin', 'Vice President', 'HR BP', 'HR Manager', 'HR Executive', 'Team Manager', 'Team Leader'])) {
       const leaveSubmenu = [
-        { title: 'Leave Approvals', path: '/admin/leave/requests', icon: 'bi-calendar-check' },
+        { title: 'Leave Requests', path: '/admin/leave/requests', icon: 'bi-calendar-check' },
         { title: 'Leave Policies', path: '/admin/leave/policies', icon: 'bi-file-text' },
         { title: 'Holiday Calendar', path: '/admin/leave/holidays', icon: 'bi-calendar-event' }
       ];

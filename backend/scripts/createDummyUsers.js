@@ -27,12 +27,31 @@ const createDummyUsers = async () => {
       console.log('Using existing MongoDB connection for dummy user creation');
     }
 
-    // Fetch all departments and create a map of name to _id
-    const departments = await Department.find({});
+    // Get all departments to reference their ObjectIds
+    const departments = await Department.find({ isActive: true });
+    if (departments.length === 0) {
+      throw new Error('No departments found. Please create departments first.');
+    }
+
+    // Create a mapping of department names to ObjectIds
     const departmentMap = {};
     departments.forEach(dept => {
       departmentMap[dept.name] = dept._id;
     });
+
+    console.log('Available departments:', Object.keys(departmentMap));
+
+    // Update admin user with Management department if it exists
+    try {
+      const adminUser = await User.findOne({ role: 'Admin' });
+      if (adminUser && !adminUser.department && departmentMap['Management']) {
+        adminUser.department = departmentMap['Management'];
+        await adminUser.save();
+        console.log('Updated admin user with Management department');
+      }
+    } catch (error) {
+      console.log('Could not update admin user department:', error.message);
+    }
 
     for (let i = 0; i < roles.length; i++) {
       const role = roles[i];
@@ -46,8 +65,23 @@ const createDummyUsers = async () => {
       // Create unique employeeId
       const employeeId = role.replace(/ /g, '').substring(0, 3).toUpperCase() + String(i + 1).padStart(3, '0');
 
-      // Determine department name string
-      const departmentName = role.includes('HR') ? 'Human Resources' : role.includes('Team') ? 'Engineering' : role === 'Employee' ? 'Operations' : 'Management';
+      // Determine department based on role
+      let departmentName;
+      if (role.includes('HR')) {
+        departmentName = 'Human Resources';
+      } else if (role.includes('Team')) {
+        departmentName = 'Engineering';
+      } else if (role === 'Employee') {
+        departmentName = 'Operations';
+      } else {
+        departmentName = 'Management';
+      }
+
+      // Get department ObjectId
+      const departmentId = departmentMap[departmentName];
+      if (!departmentId) {
+        throw new Error(`Department '${departmentName}' not found for role '${role}'`);
+      }
 
       const user = new User({
         email,
@@ -55,8 +89,7 @@ const createDummyUsers = async () => {
         firstName: role.split(' ')[0],
         lastName: 'User',
         role,
-        department: departmentMap[departmentName] || null,
-        teamName: role.includes('Team') ? 'Development Team Alpha' : role.includes('HR') ? 'HR Operations' : role === 'Employee' ? 'Operations Team' : 'Executive Team',
+        department: departmentId,
         employeeId,
         phoneNumber: `+1-555-${String(Math.floor(Math.random() * 9000) + 1000)}`,
         dateOfBirth: new Date(1985 + Math.floor(Math.random() * 15), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
